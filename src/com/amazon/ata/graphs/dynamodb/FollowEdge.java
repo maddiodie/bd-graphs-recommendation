@@ -32,4 +32,5 @@ public class FollowEdge {
     public void setToUsername(String toUsername) {
         this.toUsername = toUsername;
     }
+
 }
