@@ -11,6 +11,7 @@ import java.util.Objects;
  */
 @DynamoDBTable(tableName = "Graphs-Members")
 public class Member {
+
     private static final Integer STARTING_KARMA_POINTS = 1000;
 
     private String username;

@@ -4,6 +4,7 @@ import com.amazon.ata.graphs.dynamodb.FollowEdge;
 import com.amazon.ata.graphs.dynamodb.FollowEdgeDao;
 import com.amazon.ata.graphs.dynamodb.Recommendation;
 import com.amazon.ata.graphs.dynamodb.RecommendationDao;
+import com.amazonaws.services.dynamodbv2.datamodeling.PaginatedQueryList;
 import com.amazonaws.services.lambda.runtime.Context;
 
 import java.security.InvalidParameterException;
@@ -18,12 +19,45 @@ public class CreateRecommendationsActivity {
     private FollowEdgeDao followEdgeDao;
     private RecommendationDao recommendationDao;
 
-    public CreateRecommendationsActivity(RecommendationDao recommendationDao, FollowEdgeDao followEdgeDao) {
+    public CreateRecommendationsActivity(RecommendationDao recommendationDao,
+                                         FollowEdgeDao followEdgeDao) {
         this.followEdgeDao = followEdgeDao;
         this.recommendationDao = recommendationDao;
     }
 
     public List<Recommendation> handleRequest(CreateRecommendationsRequest input, Context context) {
-        return null;
+        if (input == null || input.getUsername() == null) {
+            throw new InvalidParameterException();
+        }
+
+        List<Recommendation> recommendations = new ArrayList<>();
+        PaginatedQueryList<FollowEdge> followEdgePaginatedQueryList =
+                this.followEdgeDao.getAllFollows(input.getUsername());
+        List<String> follows = followEdgePaginatedQueryList.stream()
+                .map(FollowEdge::getToUsername)
+                .collect(Collectors.toList());
+        // this allows us to iterator over the usernames one at a time
+
+        for (String username : follows) {
+            PaginatedQueryList<FollowEdge> followsFollowEdge =
+                    this.followEdgeDao.getAllFollows(username);
+            List<String> followsFollows = followsFollowEdge.stream()
+                    .map(FollowEdge::getToUsername)
+                    .collect(Collectors.toList());
+            for (String followsFollow : followsFollows) {
+                if (followsFollow != input.getUsername()
+                        && !follows.contains(followsFollow)
+                        && !recommendations.contains(followsFollow)) {
+                    recommendations.add(
+                            new Recommendation(input.getUsername(), followsFollow, "active"));
+                    if (recommendations.size() >= input.getLimit()) {
+                        return recommendations;
+                    }
+                }
+            }
+        }
+
+        return recommendations;
     }
+
 }
